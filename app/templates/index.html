@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}Inicio - Streaming Local{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-content">
+        <h1>Bienvenido a tu Plataforma de Streaming Local</h1>
+        <p>Disfruta de tus videos favoritos en cualquier momento, incluso sin conexión a Internet.</p>
+        {% if not current_user.is_authenticated %}
+            <div class="hero-buttons">
+                <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Iniciar Sesión</a>
+                <a href="{{ url_for('auth.register') }}" class="btn btn-secondary">Registrarse</a>
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+{% if current_user.is_authenticated and recent_videos %}
+<section class="video-section">
+    <h2>Continuar viendo</h2>
+    <div class="video-grid">
+        {% for video in recent_videos %}
+            <div class="video-card">
+                <div class="video-thumbnail">
+                    <a href="{{ url_for('video.watch', video_id=video.id) }}">
+                        {% if video.thumbnail %}
+                            <img src="{{ url_for('static', filename='thumbnails/' + video.thumbnail) }}" alt="{{ video.title }}">
+                        {% else %}
+                            <div class="placeholder-thumbnail">
+                                <span>{{ video.title[:1] }}</span>
+                            </div>
+                        {% endif %}
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {{ (video.current_time / video.duration) * 100 if video.duration else 0 }}%"></div>
+                        </div>
+                    </a>
+                </div>
+                <div class="video-info">
+                    <h3><a href="{{ url_for('video.watch', video_id=video.id) }}">{{ video.title }}</a></h3>
+                    <p class="video-meta">
+                        <span class="duration">{{ video.duration | format_duration }}</span>
+                    </p>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<section class="video-section">
+    <h2>Videos Disponibles</h2>
+    
+    {% if videos %}
+        <div class="video-grid">
+            {% for video in videos %}
+                <div class="video-card">
+                    <div class="video-thumbnail">
+                        <a href="{{ url_for('video.watch', video_id=video.id) }}">
+                            {% if video.thumbnail %}
+                                <img src="{{ url_for('static', filename='thumbnails/' + video.thumbnail) }}" alt="{{ video.title }}">
+                            {% else %}
+                                <div class="placeholder-thumbnail">
+                                    <span>{{ video.title[:1] }}</span>
+                                </div>
+                            {% endif %}
+                        </a>
+                    </div>
+                    <div class="video-info">
+                        <h3><a href="{{ url_for('video.watch', video_id=video.id) }}">{{ video.title }}</a></h3>
+                        <p class="video-meta">
+                            <span class="category">{{ video.category }}</span>
+                            <span class="duration">{{ video.duration | format_duration }}</span>
+                        </p>
+                        <p class="video-description">{{ video.description | truncate(100) }}</p>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p>Aún no hay videos disponibles.</p>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('video.upload') }}" class="btn btn-primary">Subir el primer video</a>
+            {% endif %}
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

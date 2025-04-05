@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block title %}Iniciar Sesión - Streaming Local{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h2>Iniciar Sesión</h2>
+            <p>Ingresa tus credenciales para acceder</p>
+        </div>
+        
+        <form method="post" class="auth-form">
+            <div class="form-group">
+                <label for="username">Usuario</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-block">Iniciar Sesión</button>
+            </div>
+        </form>
+        
+        <div class="auth-footer">
+            <p>¿No tienes una cuenta? <a href="{{ url_for('auth.register') }}">Regístrate</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

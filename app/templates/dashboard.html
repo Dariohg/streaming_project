@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block title %}Mi Perfil - Streaming Local{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Hola, {{ current_user.username }}</h1>
+        <p>Bienvenido a tu espacio personal</p>
+    </div>
+    
+    <div class="dashboard-grid">
+        <div class="dashboard-section">
+            <h2>Videos recientes</h2>
+            
+            {% if recent_videos %}
+                <div class="video-list">
+                    {% for video in recent_videos %}
+                        <div class="video-item">
+                            <div class="video-thumbnail">
+                                <a href="{{ url_for('video.watch', video_id=video.id) }}">
+                                    {% if video.thumbnail %}
+                                        <img src="{{ url_for('static', filename='thumbnails/' + video.thumbnail) }}" alt="{{ video.title }}">
+                                    {% else %}
+                                        <div class="placeholder-thumbnail small">
+                                            <span>{{ video.title[:1] }}</span>
+                                        </div>
+                                    {% endif %}
+                                </a>
+                            </div>
+                            <div class="video-details">
+                                <h3><a href="{{ url_for('video.watch', video_id=video.id) }}">{{ video.title }}</a></h3>
+                                <div class="video-progress">
+                                    <div class="progress-bar">
+                                        <div class="progress" style="width: {{ (video.current_time / video.duration) * 100 if video.duration else 0 }}%"></div>
+                                    </div>
+                                    <span class="progress-text">
+                                        {{ video.current_time | format_duration }} / {{ video.duration | format_duration }}
+                                    </span>
+                                </div>
+                                <p class="video-last-watched">Último visto: {{ video.last_watched.strftime('%d/%m/%Y %H:%M') }}</p>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p>No has visto ningún video recientemente.</p>
+                    <a href="{{ url_for('video.index') }}" class="btn btn-primary">Explorar videos</a>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="dashboard-section">
+            <h2>Acciones</h2>
+            <div class="action-buttons">
+                <a href="{{ url_for('video.upload') }}" class="btn btn-primary">
+                    <span class="icon">+</span>
+                    Subir Video
+                </a>
+                <a href="{{ url_for('video.index') }}" class="btn btn-secondary">
+                    <span class="icon">&#x1F50D;</span>
+                    Explorar Videos
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

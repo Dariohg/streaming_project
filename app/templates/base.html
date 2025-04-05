@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Streaming Local{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+<header>
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <a href="{{ url_for('video.index') }}" class="logo">Streaming Local</a>
+        </div>
+        <div class="navbar-menu">
+            <ul class="nav-links">
+                <li><a href="{{ url_for('video.index') }}">Inicio</a></li>
+                {% if current_user.is_authenticated %}
+                <li><a href="{{ url_for('video.dashboard') }}">Mi Perfil</a></li>
+                <li><a href="{{ url_for('video.upload') }}">Subir Video</a></li>
+                <li><a href="{{ url_for('auth.logout') }}">Cerrar Sesión</a></li>
+                {% else %}
+                <li><a href="{{ url_for('auth.login') }}">Iniciar Sesión</a></li>
+                <li><a href="{{ url_for('auth.register') }}">Registrarse</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+</header>
+
+<main>
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+</main>
+
+<footer>
+    <div class="container">
+        <p>&copy; {{ current_year }} Streaming Local. Todos los derechos reservados.</p></div>
+</footer>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

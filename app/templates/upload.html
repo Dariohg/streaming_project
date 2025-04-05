@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}Subir Video - Streaming Local{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    <div class="upload-header">
+        <h1>Subir nuevo video</h1>
+        <p>Comparte tu contenido con todos los usuarios de la red</p>
+    </div>
+    
+    <form method="post" enctype="multipart/form-data" class="upload-form">
+        <div class="form-group">
+            <label for="file">Archivo de Video</label>
+            <div class="file-upload">
+                <input type="file" id="file" name="file" accept=".mp4,.avi,.mkv,.mov,.webm" required>
+                <div class="file-upload-placeholder" id="file-placeholder">
+                    <span class="icon">&#x1F4C2;</span>
+                    <span class="text">Selecciona un archivo o arrastra aquí</span>
+                </div>
+                <div class="file-info" id="file-info"></div>
+            </div>
+            <p class="form-hint">Formatos permitidos: MP4, AVI, MKV, MOV, WEBM. Tamaño máximo: 1GB</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="title">Título</label>
+            <input type="text" id="title" name="title" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="description">Descripción</label>
+            <textarea id="description" name="description" rows="4"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="category">Categoría</label>
+            <select id="category" name="category">
+                <option value="Películas">Películas</option>
+                <option value="Series">Series</option>
+                <option value="Documentales">Documentales</option>
+                <option value="Tutoriales">Tutoriales</option>
+                <option value="Música">Música</option>
+                <option value="Animación">Animación</option>
+                <option value="Deportes">Deportes</option>
+                <option value="Noticias">Noticias</option>
+                <option value="Otros">Otros</option>
+            </select>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Subir Video</button>
+            <a href="{{ url_for('video.index') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileInput = document.getElementById('file');
+        const filePlaceholder = document.getElementById('file-placeholder');
+        const fileInfo = document.getElementById('file-info');
+        
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                filePlaceholder.style.display = 'none';
+                fileInfo.style.display = 'block';
+                fileInfo.innerHTML = `
+                    <span class="file-name">${file.name}</span>
+                    <span class="file-size">${formatFileSize(file.size)}</span>
+                `;
+                
+                // Actualizar el título con el nombre del archivo
+                const titleInput = document.getElementById('title');
+                if (!titleInput.value) {
+                    titleInput.value = file.name.replace(/\.[^/.]+$/, "");
+                }
+            } else {
+                filePlaceholder.style.display = 'flex';
+                fileInfo.style.display = 'none';
+            }
+        });
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+    });
+</script>
+{% endblock %}

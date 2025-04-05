@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ video.title }} - Streaming Local{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/player.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="player-container">
+    <div class="video-player">
+        <video id="video-player" controls data-video-id="{{ video.id }}" data-current-time="{{ progress.current_time }}">
+            Tu navegador no soporta la reproducción de video.
+        </video>
+
+        <div class="video-controls">
+            <div class="video-info">
+                <h1>{{ video.title }}</h1>
+                {% if video.category %}
+                <span class="video-category">{{ video.category }}</span>
+                {% endif %}
+            </div>
+
+            <div class="video-description">
+                <p>{{ video.description }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="video-sidebar">
+        <div class="video-details">
+            <h3>Información del video</h3>
+            <ul>
+                <li><span>Duración:</span> {{ video.duration | format_duration }}</li>
+                <li><span>Subido el:</span> {{ video.uploaded_at.strftime('%d/%m/%Y') }}</li>
+            </ul>
+        </div>
+
+        <div class="offline-mode">
+            <h3>Modo sin conexión</h3>
+            <p>Este video puede reproducirse incluso cuando pierdas la conexión a Internet, siempre que hayas cargado previamente la parte que deseas ver.</p>
+            <div class="offline-status">
+                <span class="status-indicator" id="connection-status"></span>
+                <span id="connection-text">Conectado</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Agregar HLS.js -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const video = document.getElementById('video-player');
+    const videoId = video.getAttribute('data-video-id');
+    const savedTime = parseFloat(video.getAttribute('data-current-time') || 0);
+    const playlistUrl = "{{ playlist_url }}";
+
+    const connectionStatus = document.getElementById('connection-status');
+    const connectionText = document.getElementById('connection-text');
+
+    let isOffline = !navigator.onLine;
+    let loadedSegments = [];
+    let hls = null;
+
+    // Inicializar HLS
+    if (Hls.isSupported()) {
+        hls = new Hls({
+            maxBufferLength: 30,          // 30 segundos de buffer
+            maxMaxBufferLength: 600,      // Máximo 10 minutos
+            enableWorker: true,           // Usar Web Worker para mejor rendimiento
+            lowLatencyMode: false,        // No necesitamos baja latencia
+            debug: false                  // Desactivar logs de depuración
+        });
+
+        hls.loadSource(playlistUrl);
+        hls.attachMedia(video);
+
+        // Cuando HLS está listo
+        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+            console.log("HLS manifest cargado");
+
+            // Restaurar tiempo guardado
+            if (savedTime > 0) {
+                video.currentTime = savedTime;
+            }
+
+            // Monitorear segmentos cargados
+            hls.on(Hls.Events.FRAG_LOADED, function(event, data) {
+                const segmentUrl = data.frag.url;
+                if (!loadedSegments.includes(segmentUrl)) {
+                    loadedSegments.push(segmentUrl);
+                    console.log(`Nuevo segmento cargado: ${loadedSegments.length} segmentos en total`);
+                }
+            });
+        });
+
+        // Errores de HLS
+        hls.on(Hls.Events.ERROR, function(event, data) {
+            if (data.fatal) {
+                switch(data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                        if (isOffline) {
+                            console.log("Error de red en modo offline, intentando recuperar");
+                            // No intentar recargar si estamos offline
+                            hls.stopLoad();
+                        } else {
+                            console.log("Error de red fatal, intentando recuperar");
+                            hls.startLoad();
+                        }
+                        break;
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                        console.log("Error de medio fatal, intentando recuperar");
+                        hls.recoverMediaError();
+                        break;
+                    default:
+                        console.log("Error fatal, no se puede recuperar");
+                        hls.destroy();
+                        break;
+                }
+            }
+        });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Para Safari
+        video.src = playlistUrl;
+        video.addEventListener('loadedmetadata', function() {
+            if (savedTime > 0) {
+                video.currentTime = savedTime;
+            }
+        });
+    }
+
+    // Guardar progreso
+    function saveProgress() {
+        if (!videoId) return;
+
+        const currentTime = video.currentTime;
+        const duration = video.duration;
+        const watched = (currentTime / duration) > 0.9;
+
+        if (navigator.onLine) {
+            fetch('/api/update-progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    video_id: videoId,
+                    current_time: currentTime,
+                    watched: watched
+                })
+            }).catch(error => {
+                console.error('Error al guardar progreso:', error);
+                saveProgressOffline(currentTime, watched);
+            });
+        } else {
+            saveProgressOffline(currentTime, watched);
+        }
+    }
+
+    // Guardar progreso offline
+    function saveProgressOffline(currentTime, watched) {
+        const offlineProgress = JSON.parse(localStorage.getItem('offlineProgress') || '{}');
+        offlineProgress[videoId] = {
+            current_time: currentTime,
+            watched: watched,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('offlineProgress', JSON.stringify(offlineProgress));
+    }
+
+    // Activar modo offline
+    function enableOfflineMode() {
+        console.log("Activando modo offline");
+
+        if (hls) {
+            // Detener carga de nuevos segmentos
+            hls.stopLoad();
+        }
+
+        // Mostrar mensaje
+        const segmentsDuration = loadedSegments.length * 5; // Cada segmento dura 5 segundos
+        showOfflineMessage(segmentsDuration);
+    }
+
+    // Mostrar mensaje offline
+    function showOfflineMessage(seconds) {
+        const offlineAlert = document.createElement('div');
+        offlineAlert.className = 'offline-message';
+        offlineAlert.innerHTML = `
+            <strong>Modo sin conexión</strong>
+            <p>Puedes reproducir aproximadamente ${seconds} segundos del video.</p>
+        `;
+
+        document.body.appendChild(offlineAlert);
+
+        setTimeout(() => {
+            offlineAlert.style.opacity = '0';
+            setTimeout(() => offlineAlert.remove(), 500);
+        }, 5000);
+    }
+
+    // Actualizar estado de conexión
+    function updateConnectionStatus() {
+        const wasOffline = isOffline;
+        isOffline = !navigator.onLine;
+
+        if (isOffline) {
+            connectionStatus.style.backgroundColor = 'var(--danger-color)';
+            connectionText.textContent = 'Sin conexión';
+            document.body.classList.add('offline');
+
+            if (!wasOffline) {
+                enableOfflineMode();
+            }
+        } else {
+            connectionStatus.style.backgroundColor = 'var(--success-color)';
+            connectionText.textContent = 'Conectado';
+            document.body.classList.remove('offline');
+
+            if (wasOffline && hls) {
+                // Reiniciar carga
+                hls.startLoad();
+
+                // Sincronizar progreso
+                const offlineProgress = JSON.parse(localStorage.getItem('offlineProgress') || '{}');
+                if (offlineProgress[videoId]) {
+                    fetch('/api/update-progress', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            video_id: videoId,
+                            current_time: offlineProgress[videoId].current_time,
+                            watched: offlineProgress[videoId].watched
+                        })
+                    }).then(() => {
+                        delete offlineProgress[videoId];
+                        localStorage.setItem('offlineProgress', JSON.stringify(offlineProgress));
+                    });
+                }
+            }
+        }
+    }
+
+    // Eventos para guardar progreso
+    video.addEventListener('pause', saveProgress);
+    video.addEventListener('ended', saveProgress);
+    window.addEventListener('beforeunload', saveProgress);
+
+    // Inicializar estado de conexión
+    updateConnectionStatus();
+
+    // Escuchar cambios de conexión
+    window.addEventListener('online', updateConnectionStatus);
+    window.addEventListener('offline', updateConnectionStatus);
+
+    // Agregar estilos para mensaje offline
+    const style = document.createElement('style');
+    style.textContent = `
+        .offline-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(229, 9, 20, 0.9);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            z-index: 1000;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: opacity 0.5s;
+            opacity: 1;
+            max-width: 350px;
+            font-family: Arial, sans-serif;
+        }
+        .offline-message strong {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+        .offline-message p {
+            margin: 0;
+            font-size: 14px;
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+{% endblock %}
